@@ -503,60 +503,38 @@
                 }
 
                 try {
-                    console.log('補正開始...');
-                    console.log('選択された点:', this.points);
-                    
-                    // 変換行列を計算
                     const srcPoints = this.points.map(p => [p.x * this.scaleX, p.y * this.scaleY]);
-                    console.log('実際の座標:', srcPoints);
-                    
-                    // 選択した4点から適切な長方形のサイズを計算
                     const { width, height, dstPoints } = this.calculateOptimalRectangle(srcPoints);
-                    console.log('計算されたサイズ:', width, 'x', height);
-                    console.log('目標座標:', dstPoints);
-                    
+
                     this.correctedWidth = width;
                     this.correctedHeight = height;
 
                     const matrix = this.calculatePerspectiveTransform(srcPoints, dstPoints);
-                    console.log('変換行列:', matrix);
-                    
                     this.applyTransform(matrix, width, height);
-                    
+
                     document.getElementById('downloadBtn').disabled = false;
-                    this.showStatus(`補正が完了しました！(${Math.round(width)}×${Math.round(height)}px)`, 'success');
+                    this.showStatus(`補正が完了しました(${Math.round(width)}×${Math.round(height)}px)`, 'success');
                 } catch (error) {
-                    console.error('補正エラー詳細:', error);
+                    console.error('補正エラー:', error);
                     this.showStatus('補正に失敗しました。点の位置を確認してください。', 'error');
                 }
             }
 
             calculateOptimalRectangle(srcPoints) {
-                console.log('最適な長方形を計算中...');
-                
-                // 4点から最適な長方形のサイズを計算
                 const [p1, p2, p3, p4] = srcPoints;
-                
-                // 各辺の長さを計算
+
                 const top = this.distance(p1, p2);
                 const right = this.distance(p2, p3);
                 const bottom = this.distance(p3, p4);
                 const left = this.distance(p4, p1);
-                
-                console.log('辺の長さ:', { top, right, bottom, left });
-                
-                // 幅と高さを平均で決定（より安定した結果のため）
+
+                // 対辺の平均で幅・高さを決める(より安定した結果のため)
                 const width = (top + bottom) / 2;
                 const height = (left + right) / 2;
-                
-                console.log('平均された幅と高さ:', width, height);
-                
-                // サイズが小さすぎる場合は最小値を設定
+
                 const minSize = 50;
                 const finalWidth = Math.max(width, minSize);
                 const finalHeight = Math.max(height, minSize);
-                
-                console.log('最終サイズ:', finalWidth, finalHeight);
                 
                 // 目標となる長方形の座標
                 const dstPoints = [
@@ -638,22 +616,15 @@
 
             applyTransform(matrix, outputWidth, outputHeight) {
                 try {
-                    console.log('変換開始:', outputWidth, outputHeight);
-                    
-                    // サイズが有効かチェック
                     if (outputWidth <= 0 || outputHeight <= 0) {
                         throw new Error('無効な出力サイズ: ' + outputWidth + 'x' + outputHeight);
                     }
-                    
-                    // 結果用のキャンバスを作成
+
                     const resultCanvas = document.createElement('canvas');
                     resultCanvas.width = Math.floor(outputWidth);
                     resultCanvas.height = Math.floor(outputHeight);
                     const resultCtx = resultCanvas.getContext('2d');
-                    
-                    console.log('結果キャンバス作成:', resultCanvas.width, 'x', resultCanvas.height);
 
-                    // 元画像のピクセルデータを取得
                     const srcCanvas = document.createElement('canvas');
                     srcCanvas.width = this.image.width;
                     srcCanvas.height = this.image.height;
@@ -661,39 +632,27 @@
                     srcCtx.drawImage(this.image, 0, 0);
                     const srcImageData = srcCtx.getImageData(0, 0, this.image.width, this.image.height);
                     const srcData = srcImageData.data;
-                    
-                    console.log('元画像データ取得完了:', this.image.width, 'x', this.image.height);
 
-                    // 出力画像データを作成
                     const outputImageData = resultCtx.createImageData(resultCanvas.width, resultCanvas.height);
                     const outputData = outputImageData.data;
-                    
-                    console.log('出力画像データ作成完了');
 
-                    // 逆変換を適用
                     const invMatrix = this.invertMatrix(matrix);
-                    console.log('逆行列:', invMatrix);
-                    
-                    let validPixels = 0;
-                    
+
                     for (let y = 0; y < resultCanvas.height; y++) {
                         for (let x = 0; x < resultCanvas.width; x++) {
-                            // 逆変換で元画像の座標を求める
                             const srcCoord = this.transformPoint(x, y, invMatrix);
                             const srcX = Math.floor(srcCoord[0]);
                             const srcY = Math.floor(srcCoord[1]);
 
                             const dstIndex = (y * resultCanvas.width + x) * 4;
-                            
+
                             if (srcX >= 0 && srcX < this.image.width && srcY >= 0 && srcY < this.image.height) {
                                 const srcIndex = (srcY * this.image.width + srcX) * 4;
                                 outputData[dstIndex] = srcData[srcIndex];
                                 outputData[dstIndex + 1] = srcData[srcIndex + 1];
                                 outputData[dstIndex + 2] = srcData[srcIndex + 2];
                                 outputData[dstIndex + 3] = srcData[srcIndex + 3];
-                                validPixels++;
                             } else {
-                                // 範囲外は白で埋める
                                 outputData[dstIndex] = 255;
                                 outputData[dstIndex + 1] = 255;
                                 outputData[dstIndex + 2] = 255;
@@ -701,54 +660,31 @@
                             }
                         }
                     }
-                    
-                    console.log('有効ピクセル数:', validPixels, '/', resultCanvas.width * resultCanvas.height);
 
-                    // 結果画像を描画
                     resultCtx.putImageData(outputImageData, 0, 0);
-                    
-                    console.log('結果画像描画完了');
-                    
-                    // 表示用のサイズを計算
+
                     const maxDisplayWidth = 500;
                     const maxDisplayHeight = 400;
-                    
+
                     let displayWidth = resultCanvas.width;
                     let displayHeight = resultCanvas.height;
-                    
+
                     if (displayWidth > maxDisplayWidth || displayHeight > maxDisplayHeight) {
                         const ratio = Math.min(maxDisplayWidth / displayWidth, maxDisplayHeight / displayHeight);
                         displayWidth = Math.floor(displayWidth * ratio);
                         displayHeight = Math.floor(displayHeight * ratio);
                     }
-                    
-                    console.log('表示サイズ:', displayWidth, 'x', displayHeight);
-                    
-                    // 表示キャンバスのサイズを設定
+
                     this.correctedCanvas.width = displayWidth;
                     this.correctedCanvas.height = displayHeight;
-                    
-                    console.log('表示キャンバス設定完了');
-                    
-                    // 背景を白で塗りつぶし
+
                     this.correctedCtx.fillStyle = 'white';
                     this.correctedCtx.fillRect(0, 0, displayWidth, displayHeight);
-                    
-                    // 結果を表示キャンバスに描画
                     this.correctedCtx.drawImage(resultCanvas, 0, 0, displayWidth, displayHeight);
-                    
-                    // ダウンロード用に保存
+
                     this.resultCanvas = resultCanvas;
-                    
-                    console.log('表示完了');
-                    
-                    // テスト用：キャンバスにデータが描画されているかチェック
-                    const testData = this.correctedCtx.getImageData(0, 0, Math.min(10, displayWidth), Math.min(10, displayHeight));
-                    console.log('描画テスト - 最初の10ピクセル:', Array.from(testData.data.slice(0, 40)));
-                    
                 } catch (error) {
-                    console.error('変換エラー詳細:', error);
-                    console.error('スタックトレース:', error.stack);
+                    console.error('変換エラー:', error);
                     throw error;
                 }
             }
