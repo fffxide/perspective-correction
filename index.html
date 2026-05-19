@@ -72,6 +72,35 @@
             line-height: 1.7;
         }
 
+        .preview-toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #444;
+            flex-wrap: wrap;
+        }
+
+        .preview-toggle label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .preview-toggle input[type="checkbox"] {
+            accent-color: #111;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .preview-toggle .hint {
+            color: #888;
+            font-size: 12px;
+        }
+
         .canvas-container {
             display: flex;
             gap: 16px;
@@ -239,8 +268,16 @@
             <strong>使い方:</strong><br>
             1. 画像をアップロードすると、四隅付近に4点が自動配置されます<br>
             2. 各点をドラッグして、補正したい四角形の角に合わせてください（点1=左上 → 2=右上 → 3=右下 → 4=左下 の時計回り）<br>
-            3. 点をクリックして選択（外側にリングが付きます）→ 矢印キー（Shift+矢印で10px）で微調整できます<br>
-            4. 右側に補正結果がリアルタイムで表示されます（Ctrl+Z または「元に戻す」で直前のドラッグを取り消せます）
+            3. 点をクリックして選択 → 矢印キー（Shift+矢印で10px）で微調整できます<br>
+            4. 「補正実行」ボタンで結果を更新（または下記のリアルタイムプレビューをオン）<br>
+            5. Ctrl+Z または「元に戻す」で直前のドラッグを取り消せます
+        </div>
+
+        <div class="preview-toggle">
+            <label>
+                <input type="checkbox" id="realtimePreview"> リアルタイムプレビュー
+            </label>
+            <span class="hint">点を動かすたびに右側を自動更新します（重い場合はオフにしてください）</span>
         </div>
 
         <div class="canvas-container">
@@ -290,6 +327,7 @@
                 this.history = [];
                 this.maxHistory = 30;
                 this.previewRequested = false;
+                this.realtimePreview = false;
 
                 this.initEventListeners();
             }
@@ -309,6 +347,14 @@
                 document.getElementById('undoBtn').addEventListener('click', () => this.undo());
                 document.getElementById('downloadBtn').addEventListener('click', () => this.downloadResult());
 
+                const realtimeCheckbox = document.getElementById('realtimePreview');
+                realtimeCheckbox.checked = this.realtimePreview;
+                realtimeCheckbox.addEventListener('change', (e) => {
+                    this.realtimePreview = e.target.checked;
+                    this.updateCorrectBtnState();
+                    if (this.realtimePreview) this.schedulePreview();
+                });
+
                 document.addEventListener('keydown', (e) => this.handleKeyDown(e));
             }
 
@@ -323,10 +369,10 @@
                         this.initPoints();
                         this.history = [];
                         this.selectedIndex = -1;
-                        document.getElementById('correctBtn').disabled = false;
                         document.getElementById('undoBtn').disabled = true;
                         this.updatePointDisplay();
                         this.drawOriginalImage();
+                        this.updateCorrectBtnState();
                         this.schedulePreview();
                         this.showStatus('画像を読み込みました。4点をドラッグして角に合わせてください。', 'info');
                     };
@@ -470,6 +516,7 @@
             }
 
             schedulePreview() {
+                if (!this.realtimePreview) return;
                 if (this.previewRequested) return;
                 this.previewRequested = true;
                 requestAnimationFrame(() => {
@@ -478,6 +525,11 @@
                         this.performCorrection(true);
                     }
                 });
+            }
+
+            updateCorrectBtnState() {
+                const btn = document.getElementById('correctBtn');
+                btn.disabled = !this.image || this.realtimePreview;
             }
 
             handleMouseUp() {
