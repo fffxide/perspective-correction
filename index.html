@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>射影変換による画像補正</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .upload-section {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .file-input-wrapper:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .instruction {
+            background: #f7fafc;
+            border: 2px dashed #cbd5e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            color: #4a5568;
+        }
+
+        .canvas-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .canvas-wrapper {
+            text-align: center;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .canvas-wrapper h3 {
+            margin: 0 0 10px 0;
+            color: #4a5568;
+        }
+
+        canvas {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: crosshair;
+            transition: border-color 0.3s ease;
+        }
+
+        canvas:hover {
+            border-color: #667eea;
+        }
+
+        .point-info {
+            margin-top: 20px;
+            background: #edf2f7;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .point-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .point-item {
+            background: white;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 12px;
+            border: 1px solid #cbd5e0;
+        }
+
+        .point-item.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        button {
+            background: linear-gradient(45deg, #48bb78, #38a169);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .reset-btn {
+            background: linear-gradient(45deg, #f56565, #e53e3e);
+        }
+
+        .download-btn {
+            background: linear-gradient(45deg, #4299e1, #3182ce);
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .status.info {
+            background: #bee3f8;
+            color: #2a4365;
+        }
+
+        @media (max-width: 768px) {
+            .canvas-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            canvas {
+                max-width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📐 射影変換による画像補正</h1>
+        
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <input type="file" id="imageInput" accept="image/*">
+                📁 画像をアップロード
+            </div>
+        </div>
+
+        <div class="instruction">
+            <strong>使い方:</strong><br>
+            1. 画像をアップロードしてください<br>
+            2. 補正したい四角形の4つの角を<strong>時計回り</strong>にクリックしてください<br>
+            3. 「補正実行」ボタンをクリックして結果を確認してください
+        </div>
+
+        <div class="canvas-container">
+            <div class="canvas-wrapper">
+                <h3>元画像（4点をクリック）</h3>
+                <canvas id="originalCanvas"></canvas>
+            </div>
+            <div class="canvas-wrapper">
+                <h3>補正結果</h3>
+                <canvas id="correctedCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="point-info">
+            <strong>選択した点の座標:</strong>
+            <div class="point-list" id="pointList">
+                <div class="point-item" id="point1">点1: 未選択</div>
+                <div class="point-item" id="point2">点2: 未選択</div>
+                <div class="point-item" id="point3">点3: 未選択</div>
+                <div class="point-item" id="point4">点4: 未選択</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="correctBtn" disabled>✨ 補正実行</button>
+            <button id="resetBtn" class="reset-btn">🔄 リセット</button>
+            <button id="downloadBtn" class="download-btn" disabled>💾 結果をダウンロード</button>
+        </div>
+
+        <div id="status" class="status" style="display: none;"></div>
+    </div>
+
+    <script>
+        class PerspectiveCorrection {
+            constructor() {
+                this.originalCanvas = document.getElementById('originalCanvas');
+                this.correctedCanvas = document.getElementById('correctedCanvas');
+                this.originalCtx = this.originalCanvas.getContext('2d');
+                this.correctedCtx = this.correctedCanvas.getContext('2d');
+                
+                this.image = null;
+                this.points = [];
+                this.maxPoints = 4;
+                
+                this.initEventListeners();
+            }
+
+            initEventListeners() {
+                document.getElementById('imageInput').addEventListener('change', (e) => {
+                    this.loadImage(e.target.files[0]);
+                });
+
+                this.originalCanvas.addEventListener('click', (e) => {
+                    this.addPoint(e);
+                });
+
+                document.getElementById('correctBtn').addEventListener('click', () => {
+                    this.performCorrection();
+                });
+
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.reset();
+                });
+
+                document.getElementById('downloadBtn').addEventListener('click', () => {
+                    this.downloadResult();
+                });
+            }
+
+            loadImage(file) {
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.image = new Image();
+                    this.image.onload = () => {
+                        this.setupCanvas();
+                        this.drawOriginalImage();
+                        this.showStatus('画像を読み込みました。4つの角を時計回りにクリックしてください。', 'info');
+                    };
+                    this.image.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            setupCanvas() {
+                const maxWidth = 500;
+                const maxHeight = 400;
+                
+                let { width, height } = this.image;
+                
+                // アスペクト比を維持しながらリサイズ
+                if (width > maxWidth || height > maxHeight) {
+                    const ratio = Math.min(maxWidth / width, maxHeight / height);
+                    width *= ratio;
+                    height *= ratio;
+                }
+
+                this.originalCanvas.width = width;
+                this.originalCanvas.height = height;
+                this.correctedCanvas.width = width;
+                this.correctedCanvas.height = height;
+                
+                this.scaleX = this.image.width / width;
+                this.scaleY = this.image.height / height;
+            }
+
+            drawOriginalImage() {
+                this.originalCtx.clearRect(0, 0, this.originalCanvas.width, this.originalCanvas.height);
+                this.originalCtx.drawImage(this.image, 0, 0, this.originalCanvas.width, this.originalCanvas.height);
+                this.drawPoints();
+            }
+
+            addPoint(e) {
+                if (this.points.length >= this.maxPoints) return;
+
+                const rect = this.originalCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                this.points.push({ x, y });
+                this.updatePointDisplay();
+                this.drawOriginalImage();
+
+                if (this.points.length === this.maxPoints) {
+                    document.getElementById('correctBtn').disabled = false;
+                    this.showStatus('4つの点が選択されました。補正を実行できます。', 'success');
+                }
+            }
+
+            drawPoints() {
+                this.points.forEach((point, index) => {
+                    // 点を描画
+                    this.originalCtx.fillStyle = '#667eea';
+                    this.originalCtx.beginPath();
+                    this.originalCtx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
+                    this.originalCtx.fill();
+
+                    // 点の番号を描画
+                    this.originalCtx.fillStyle = 'white';
+                    this.originalCtx.font = '12px Arial';
+                    this.originalCtx.textAlign = 'center';
+                    this.originalCtx.fillText(index + 1, point.x, point.y + 4);
+
+                    // 線を描画
+                    if (index > 0) {
+                        this.originalCtx.strokeStyle = '#667eea';
+                        this.originalCtx.lineWidth = 2;
+                        this.originalCtx.beginPath();
+                        this.originalCtx.moveTo(this.points[index - 1].x, this.points[index - 1].y);
+                        this.originalCtx.lineTo(point.x, point.y);
+                        this.originalCtx.stroke();
+                    }
+                });
+
+                // 最後の点から最初の点への線
+                if (this.points.length === this.maxPoints) {
+                    this.originalCtx.strokeStyle = '#667eea';
+                    this.originalCtx.lineWidth = 2;
+                    this.originalCtx.beginPath();
+                    this.originalCtx.moveTo(this.points[3].x, this.points[3].y);
+                    this.originalCtx.lineTo(this.points[0].x, this.points[0].y);
+                    this.originalCtx.stroke();
+                }
+            }
+
+            updatePointDisplay() {
+                for (let i = 0; i < this.maxPoints; i++) {
+                    const pointElement = document.getElementById(`point${i + 1}`);
+                    if (i < this.points.length) {
+                        const point = this.points[i];
+                        pointElement.textContent = `点${i + 1}: (${Math.round(point.x)}, ${Math.round(point.y)})`;
+                        pointElement.classList.add('active');
+                    } else {
+                        pointElement.textContent = `点${i + 1}: 未選択`;
+                        pointElement.classList.remove('active');
+                    }
+                }
+            }
+
+            performCorrection() {
+                if (this.points.length !== this.maxPoints) {
+                    this.showStatus('4つの点を選択してください。', 'error');
+                    return;
+                }
+
+                try {
+                    console.log('補正開始...');
+                    console.log('選択された点:', this.points);
+                    
+                    // 変換行列を計算
+                    const srcPoints = this.points.map(p => [p.x * this.scaleX, p.y * this.scaleY]);
+                    console.log('実際の座標:', srcPoints);
+                    
+                    // 選択した4点から適切な長方形のサイズを計算
+                    const { width, height, dstPoints } = this.calculateOptimalRectangle(srcPoints);
+                    console.log('計算されたサイズ:', width, 'x', height);
+                    console.log('目標座標:', dstPoints);
+                    
+                    this.correctedWidth = width;
+                    this.correctedHeight = height;
+
+                    const matrix = this.calculatePerspectiveTransform(srcPoints, dstPoints);
+                    console.log('変換行列:', matrix);
+                    
+                    this.applyTransform(matrix, width, height);
+                    
+                    document.getElementById('downloadBtn').disabled = false;
+                    this.showStatus(`補正が完了しました！(${Math.round(width)}×${Math.round(height)}px)`, 'success');
+                } catch (error) {
+                    console.error('補正エラー詳細:', error);
+                    this.showStatus('補正に失敗しました。点の位置を確認してください。', 'error');
+                }
+            }
+
+            calculateOptimalRectangle(srcPoints) {
+                console.log('最適な長方形を計算中...');
+                
+                // 4点から最適な長方形のサイズを計算
+                const [p1, p2, p3, p4] = srcPoints;
+                
+                // 各辺の長さを計算
+                const top = this.distance(p1, p2);
+                const right = this.distance(p2, p3);
+                const bottom = this.distance(p3, p4);
+                const left = this.distance(p4, p1);
+                
+                console.log('辺の長さ:', { top, right, bottom, left });
+                
+                // 幅と高さを平均で決定（より安定した結果のため）
+                const width = (top + bottom) / 2;
+                const height = (left + right) / 2;
+                
+                console.log('平均された幅と高さ:', width, height);
+                
+                // サイズが小さすぎる場合は最小値を設定
+                const minSize = 50;
+                const finalWidth = Math.max(width, minSize);
+                const finalHeight = Math.max(height, minSize);
+                
+                console.log('最終サイズ:', finalWidth, finalHeight);
+                
+                // 目標となる長方形の座標
+                const dstPoints = [
+                    [0, 0],
+                    [finalWidth, 0],
+                    [finalWidth, finalHeight],
+                    [0, finalHeight]
+                ];
+                
+                return { width: finalWidth, height: finalHeight, dstPoints };
+            }
+
+            distance(p1, p2) {
+                const dx = p1[0] - p2[0];
+                const dy = p1[1] - p2[1];
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            calculatePerspectiveTransform(src, dst) {
+                // 8点連立方程式を解いて変換行列を求める
+                const A = [];
+                const B = [];
+
+                for (let i = 0; i < 4; i++) {
+                    const [x, y] = src[i];
+                    const [u, v] = dst[i];
+                    
+                    A.push([x, y, 1, 0, 0, 0, -u*x, -u*y]);
+                    A.push([0, 0, 0, x, y, 1, -v*x, -v*y]);
+                    B.push(u);
+                    B.push(v);
+                }
+
+                const h = this.solveLinearSystem(A, B);
+                return [
+                    [h[0], h[1], h[2]],
+                    [h[3], h[4], h[5]],
+                    [h[6], h[7], 1]
+                ];
+            }
+
+            solveLinearSystem(A, B) {
+                // ガウス消去法で連立方程式を解く
+                const n = A.length;
+                const augmented = A.map((row, i) => [...row, B[i]]);
+
+                // 前進消去
+                for (let i = 0; i < n; i++) {
+                    // ピボット選択
+                    let maxRow = i;
+                    for (let k = i + 1; k < n; k++) {
+                        if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
+                            maxRow = k;
+                        }
+                    }
+                    [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+
+                    // 消去
+                    for (let k = i + 1; k < n; k++) {
+                        const factor = augmented[k][i] / augmented[i][i];
+                        for (let j = i; j < n + 1; j++) {
+                            augmented[k][j] -= factor * augmented[i][j];
+                        }
+                    }
+                }
+
+                // 後退代入
+                const x = new Array(n);
+                for (let i = n - 1; i >= 0; i--) {
+                    x[i] = augmented[i][n];
+                    for (let j = i + 1; j < n; j++) {
+                        x[i] -= augmented[i][j] * x[j];
+                    }
+                    x[i] /= augmented[i][i];
+                }
+
+                return x;
+            }
+
+            applyTransform(matrix, outputWidth, outputHeight) {
+                try {
+                    console.log('変換開始:', outputWidth, outputHeight);
+                    
+                    // サイズが有効かチェック
+                    if (outputWidth <= 0 || outputHeight <= 0) {
+                        throw new Error('無効な出力サイズ: ' + outputWidth + 'x' + outputHeight);
+                    }
+                    
+                    // 結果用のキャンバスを作成
+                    const resultCanvas = document.createElement('canvas');
+                    resultCanvas.width = Math.floor(outputWidth);
+                    resultCanvas.height = Math.floor(outputHeight);
+                    const resultCtx = resultCanvas.getContext('2d');
+                    
+                    console.log('結果キャンバス作成:', resultCanvas.width, 'x', resultCanvas.height);
+
+                    // 元画像のピクセルデータを取得
+                    const srcCanvas = document.createElement('canvas');
+                    srcCanvas.width = this.image.width;
+                    srcCanvas.height = this.image.height;
+                    const srcCtx = srcCanvas.getContext('2d');
+                    srcCtx.drawImage(this.image, 0, 0);
+                    const srcImageData = srcCtx.getImageData(0, 0, this.image.width, this.image.height);
+                    const srcData = srcImageData.data;
+                    
+                    console.log('元画像データ取得完了:', this.image.width, 'x', this.image.height);
+
+                    // 出力画像データを作成
+                    const outputImageData = resultCtx.createImageData(resultCanvas.width, resultCanvas.height);
+                    const outputData = outputImageData.data;
+                    
+                    console.log('出力画像データ作成完了');
+
+                    // 逆変換を適用
+                    const invMatrix = this.invertMatrix(matrix);
+                    console.log('逆行列:', invMatrix);
+                    
+                    let validPixels = 0;
+                    
+                    for (let y = 0; y < resultCanvas.height; y++) {
+                        for (let x = 0; x < resultCanvas.width; x++) {
+                            // 逆変換で元画像の座標を求める
+                            const srcCoord = this.transformPoint(x, y, invMatrix);
+                            const srcX = Math.floor(srcCoord[0]);
+                            const srcY = Math.floor(srcCoord[1]);
+
+                            const dstIndex = (y * resultCanvas.width + x) * 4;
+                            
+                            if (srcX >= 0 && srcX < this.image.width && srcY >= 0 && srcY < this.image.height) {
+                                const srcIndex = (srcY * this.image.width + srcX) * 4;
+                                outputData[dstIndex] = srcData[srcIndex];
+                                outputData[dstIndex + 1] = srcData[srcIndex + 1];
+                                outputData[dstIndex + 2] = srcData[srcIndex + 2];
+                                outputData[dstIndex + 3] = srcData[srcIndex + 3];
+                                validPixels++;
+                            } else {
+                                // 範囲外は白で埋める
+                                outputData[dstIndex] = 255;
+                                outputData[dstIndex + 1] = 255;
+                                outputData[dstIndex + 2] = 255;
+                                outputData[dstIndex + 3] = 255;
+                            }
+                        }
+                    }
+                    
+                    console.log('有効ピクセル数:', validPixels, '/', resultCanvas.width * resultCanvas.height);
+
+                    // 結果画像を描画
+                    resultCtx.putImageData(outputImageData, 0, 0);
+                    
+                    console.log('結果画像描画完了');
+                    
+                    // 表示用のサイズを計算
+                    const maxDisplayWidth = 500;
+                    const maxDisplayHeight = 400;
+                    
+                    let displayWidth = resultCanvas.width;
+                    let displayHeight = resultCanvas.height;
+                    
+                    if (displayWidth > maxDisplayWidth || displayHeight > maxDisplayHeight) {
+                        const ratio = Math.min(maxDisplayWidth / displayWidth, maxDisplayHeight / displayHeight);
+                        displayWidth = Math.floor(displayWidth * ratio);
+                        displayHeight = Math.floor(displayHeight * ratio);
+                    }
+                    
+                    console.log('表示サイズ:', displayWidth, 'x', displayHeight);
+                    
+                    // 表示キャンバスのサイズを設定
+                    this.correctedCanvas.width = displayWidth;
+                    this.correctedCanvas.height = displayHeight;
+                    
+                    console.log('表示キャンバス設定完了');
+                    
+                    // 背景を白で塗りつぶし
+                    this.correctedCtx.fillStyle = 'white';
+                    this.correctedCtx.fillRect(0, 0, displayWidth, displayHeight);
+                    
+                    // 結果を表示キャンバスに描画
+                    this.correctedCtx.drawImage(resultCanvas, 0, 0, displayWidth, displayHeight);
+                    
+                    // ダウンロード用に保存
+                    this.resultCanvas = resultCanvas;
+                    
+                    console.log('表示完了');
+                    
+                    // テスト用：キャンバスにデータが描画されているかチェック
+                    const testData = this.correctedCtx.getImageData(0, 0, Math.min(10, displayWidth), Math.min(10, displayHeight));
+                    console.log('描画テスト - 最初の10ピクセル:', Array.from(testData.data.slice(0, 40)));
+                    
+                } catch (error) {
+                    console.error('変換エラー詳細:', error);
+                    console.error('スタックトレース:', error.stack);
+                    throw error;
+                }
+            }
+
+            transformPoint(x, y, matrix) {
+                const w = matrix[2][0] * x + matrix[2][1] * y + matrix[2][2];
+                const newX = (matrix[0][0] * x + matrix[0][1] * y + matrix[0][2]) / w;
+                const newY = (matrix[1][0] * x + matrix[1][1] * y + matrix[1][2]) / w;
+                return [newX, newY];
+            }
+
+            invertMatrix(matrix) {
+                // 3x3行列の逆行列を計算
+                const det = matrix[0][0] * (matrix[1][1] * matrix[2][2] - matrix[1][2] * matrix[2][1]) -
+                           matrix[0][1] * (matrix[1][0] * matrix[2][2] - matrix[1][2] * matrix[2][0]) +
+                           matrix[0][2] * (matrix[1][0] * matrix[2][1] - matrix[1][1] * matrix[2][0]);
+
+                if (Math.abs(det) < 1e-10) {
+                    throw new Error('行列が特異です');
+                }
+
+                const inv = [
+                    [
+                        (matrix[1][1] * matrix[2][2] - matrix[1][2] * matrix[2][1]) / det,
+                        (matrix[0][2] * matrix[2][1] - matrix[0][1] * matrix[2][2]) / det,
+                        (matrix[0][1] * matrix[1][2] - matrix[0][2] * matrix[1][1]) / det
+                    ],
+                    [
+                        (matrix[1][2] * matrix[2][0] - matrix[1][0] * matrix[2][2]) / det,
+                        (matrix[0][0] * matrix[2][2] - matrix[0][2] * matrix[2][0]) / det,
+                        (matrix[0][2] * matrix[1][0] - matrix[0][0] * matrix[1][2]) / det
+                    ],
+                    [
+                        (matrix[1][0] * matrix[2][1] - matrix[1][1] * matrix[2][0]) / det,
+                        (matrix[0][1] * matrix[2][0] - matrix[0][0] * matrix[2][1]) / det,
+                        (matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]) / det
+                    ]
+                ];
+
+                return inv;
+            }
+
+            reset() {
+                this.points = [];
+                this.updatePointDisplay();
+                if (this.image) {
+                    this.drawOriginalImage();
+                }
+                this.correctedCtx.clearRect(0, 0, this.correctedCanvas.width, this.correctedCanvas.height);
+                this.resultCanvas = null;
+                document.getElementById('correctBtn').disabled = true;
+                document.getElementById('downloadBtn').disabled = true;
+                this.showStatus('リセットしました。', 'info');
+            }
+
+            downloadResult() {
+                if (this.resultCanvas) {
+                    const link = document.createElement('a');
+                    link.download = 'corrected_image.png';
+                    link.href = this.resultCanvas.toDataURL();
+                    link.click();
+                } else {
+                    this.showStatus('ダウンロードできる結果がありません。', 'error');
+                }
+            }
+
+            showStatus(message, type) {
+                const status = document.getElementById('status');
+                status.textContent = message;
+                status.className = `status ${type}`;
+                status.style.display = 'block';
+                
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // アプリケーションを初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            new PerspectiveCorrection();
+        });
+    </script>
+</body>
+</html>
