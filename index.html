@@ -6,51 +6,50 @@
     <title>射影変換による画像補正</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 1200px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            max-width: 960px;
             margin: 0 auto;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            background: #ffffff;
             min-height: 100vh;
-            color: #333;
+            color: #111;
+            line-height: 1.5;
         }
 
         .container {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            background: #ffffff;
+            padding: 0;
         }
 
         h1 {
-            text-align: center;
-            color: #4a5568;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            text-align: left;
+            color: #111;
+            margin: 0 0 24px;
+            font-size: 1.75em;
+            font-weight: 600;
+            border-bottom: 1px solid #e5e5e5;
+            padding-bottom: 16px;
         }
 
         .upload-section {
-            margin-bottom: 30px;
-            text-align: center;
+            margin-bottom: 16px;
+            text-align: left;
         }
 
         .file-input-wrapper {
             position: relative;
             display: inline-block;
             cursor: pointer;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            background: #111;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: background 0.15s ease;
         }
 
         .file-input-wrapper:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            background: #333;
         }
 
         .file-input-wrapper input[type="file"] {
@@ -62,135 +61,156 @@
         }
 
         .instruction {
-            background: #f7fafc;
-            border: 2px dashed #cbd5e0;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            text-align: center;
-            color: #4a5568;
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            padding: 16px;
+            margin: 16px 0 24px;
+            text-align: left;
+            color: #444;
+            font-size: 14px;
+            line-height: 1.7;
         }
 
         .canvas-container {
             display: flex;
-            gap: 20px;
+            gap: 16px;
             flex-wrap: wrap;
-            justify-content: center;
-            margin-top: 20px;
+            justify-content: flex-start;
+            margin-top: 16px;
         }
 
         .canvas-wrapper {
             text-align: center;
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            padding: 12px;
         }
 
         .canvas-wrapper h3 {
-            margin: 0 0 10px 0;
-            color: #4a5568;
+            margin: 0 0 8px 0;
+            color: #444;
+            font-size: 13px;
+            font-weight: 600;
         }
 
         canvas {
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
             cursor: crosshair;
-            transition: border-color 0.3s ease;
+            background: #ffffff;
+            transition: border-color 0.15s ease;
         }
 
         canvas:hover {
-            border-color: #667eea;
+            border-color: #999;
         }
 
         .point-info {
-            margin-top: 20px;
-            background: #edf2f7;
-            border-radius: 8px;
-            padding: 15px;
+            margin-top: 24px;
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            padding: 16px;
+            font-size: 13px;
+            color: #444;
         }
 
         .point-list {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 10px;
+            gap: 8px;
             margin-top: 10px;
         }
 
         .point-item {
-            background: white;
+            background: #ffffff;
             padding: 8px;
-            border-radius: 5px;
+            border-radius: 3px;
             text-align: center;
             font-size: 12px;
-            border: 1px solid #cbd5e0;
+            border: 1px solid #ddd;
+            color: #666;
         }
 
         .point-item.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
+            background: #111;
+            color: #ffffff;
+            border-color: #111;
         }
 
         .controls {
-            text-align: center;
-            margin-top: 20px;
+            text-align: left;
+            margin-top: 24px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         button {
-            background: linear-gradient(45deg, #48bb78, #38a169);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 25px;
-            font-size: 16px;
+            background: #111;
+            color: #ffffff;
+            border: 1px solid #111;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
             cursor: pointer;
-            margin: 0 10px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
         }
 
         button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            background: #333;
+            border-color: #333;
         }
 
         button:disabled {
-            background: #cbd5e0;
+            background: #f0f0f0;
+            color: #999;
+            border-color: #e5e5e5;
             cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
         }
 
-        .reset-btn {
-            background: linear-gradient(45deg, #f56565, #e53e3e);
-        }
-
+        .reset-btn,
         .download-btn {
-            background: linear-gradient(45deg, #4299e1, #3182ce);
+            background: #ffffff;
+            color: #111;
+            border-color: #ddd;
+        }
+
+        .reset-btn:hover,
+        .download-btn:hover {
+            background: #f5f5f5;
+            color: #111;
+            border-color: #999;
         }
 
         .status {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 5px;
-            text-align: center;
-            font-weight: bold;
+            margin-top: 16px;
+            padding: 10px 14px;
+            border-radius: 3px;
+            text-align: left;
+            font-size: 13px;
+            background: #fafafa;
+            border: 1px solid #e5e5e5;
+            border-left: 3px solid #999;
+            color: #444;
         }
 
         .status.success {
-            background: #c6f6d5;
-            color: #22543d;
+            border-left-color: #111;
+            color: #111;
         }
 
         .status.error {
-            background: #fed7d7;
-            color: #742a2a;
+            border-left-color: #111;
+            color: #111;
+            font-weight: 500;
         }
 
         .status.info {
-            background: #bee3f8;
-            color: #2a4365;
+            border-left-color: #999;
+            color: #444;
         }
 
         @media (max-width: 768px) {
@@ -198,7 +218,7 @@
                 flex-direction: column;
                 align-items: center;
             }
-            
+
             canvas {
                 max-width: 100%;
                 height: auto;
@@ -208,12 +228,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>📐 射影変換による画像補正</h1>
+        <h1>射影変換による画像補正</h1>
         
         <div class="upload-section">
             <div class="file-input-wrapper">
                 <input type="file" id="imageInput" accept="image/*">
-                📁 画像をアップロード
+                画像をアップロード
             </div>
         </div>
 
@@ -246,9 +266,9 @@
         </div>
 
         <div class="controls">
-            <button id="correctBtn" disabled>✨ 補正実行</button>
-            <button id="resetBtn" class="reset-btn">🔄 リセット</button>
-            <button id="downloadBtn" class="download-btn" disabled>💾 結果をダウンロード</button>
+            <button id="correctBtn" disabled>補正実行</button>
+            <button id="resetBtn" class="reset-btn">リセット</button>
+            <button id="downloadBtn" class="download-btn" disabled>結果をダウンロード</button>
         </div>
 
         <div id="status" class="status" style="display: none;"></div>
@@ -355,7 +375,7 @@
             drawPoints() {
                 this.points.forEach((point, index) => {
                     // 点を描画
-                    this.originalCtx.fillStyle = '#667eea';
+                    this.originalCtx.fillStyle = '#111';
                     this.originalCtx.beginPath();
                     this.originalCtx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
                     this.originalCtx.fill();
@@ -368,7 +388,7 @@
 
                     // 線を描画
                     if (index > 0) {
-                        this.originalCtx.strokeStyle = '#667eea';
+                        this.originalCtx.strokeStyle = '#111';
                         this.originalCtx.lineWidth = 2;
                         this.originalCtx.beginPath();
                         this.originalCtx.moveTo(this.points[index - 1].x, this.points[index - 1].y);
@@ -379,7 +399,7 @@
 
                 // 最後の点から最初の点への線
                 if (this.points.length === this.maxPoints) {
-                    this.originalCtx.strokeStyle = '#667eea';
+                    this.originalCtx.strokeStyle = '#111';
                     this.originalCtx.lineWidth = 2;
                     this.originalCtx.beginPath();
                     this.originalCtx.moveTo(this.points[3].x, this.points[3].y);
