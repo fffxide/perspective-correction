@@ -338,34 +338,45 @@
             setupCanvas() {
                 const maxWidth = 500;
                 const maxHeight = 400;
-                
+
                 let { width, height } = this.image;
-                
-                // アスペクト比を維持しながらリサイズ
+
+                // アスペクト比を維持しながら表示サイズを決定
                 if (width > maxWidth || height > maxHeight) {
                     const ratio = Math.min(maxWidth / width, maxHeight / height);
                     width *= ratio;
                     height *= ratio;
                 }
 
-                this.originalCanvas.width = width;
-                this.originalCanvas.height = height;
-                this.correctedCanvas.width = width;
-                this.correctedCanvas.height = height;
-                
+                this.displayWidth = width;
+                this.displayHeight = height;
+
+                this.applyCanvasDpr(this.originalCanvas, this.originalCtx, width, height);
+                this.applyCanvasDpr(this.correctedCanvas, this.correctedCtx, width, height);
+
                 this.scaleX = this.image.width / width;
                 this.scaleY = this.image.height / height;
             }
 
+            applyCanvasDpr(canvas, ctx, cssWidth, cssHeight) {
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = Math.round(cssWidth * dpr);
+                canvas.height = Math.round(cssHeight * dpr);
+                canvas.style.width = cssWidth + 'px';
+                canvas.style.height = cssHeight + 'px';
+                // 以降の描画コマンドをCSS座標系で書けるようにする
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
             drawOriginalImage() {
-                this.originalCtx.clearRect(0, 0, this.originalCanvas.width, this.originalCanvas.height);
-                this.originalCtx.drawImage(this.image, 0, 0, this.originalCanvas.width, this.originalCanvas.height);
+                this.originalCtx.clearRect(0, 0, this.displayWidth, this.displayHeight);
+                this.originalCtx.drawImage(this.image, 0, 0, this.displayWidth, this.displayHeight);
                 this.drawPoints();
             }
 
             initPoints() {
-                const w = this.originalCanvas.width;
-                const h = this.originalCanvas.height;
+                const w = this.displayWidth;
+                const h = this.displayHeight;
                 const m = 0.1;
                 this.points = [
                     { x: w * m,         y: h * m         },
@@ -414,8 +425,8 @@
             handleDragMove(e) {
                 if (this.draggingIndex < 0) return;
                 const { x, y } = this.getCanvasCoords(e);
-                const w = this.originalCanvas.width;
-                const h = this.originalCanvas.height;
+                const w = this.displayWidth;
+                const h = this.displayHeight;
                 this.points[this.draggingIndex] = {
                     x: Math.max(0, Math.min(w, x)),
                     y: Math.max(0, Math.min(h, y)),
@@ -678,8 +689,7 @@
                         displayHeight = Math.floor(displayHeight * ratio);
                     }
 
-                    this.correctedCanvas.width = displayWidth;
-                    this.correctedCanvas.height = displayHeight;
+                    this.applyCanvasDpr(this.correctedCanvas, this.correctedCtx, displayWidth, displayHeight);
 
                     this.correctedCtx.fillStyle = 'white';
                     this.correctedCtx.fillRect(0, 0, displayWidth, displayHeight);
