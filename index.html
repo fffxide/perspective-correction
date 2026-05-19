@@ -297,9 +297,10 @@
                 });
 
                 this.originalCanvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-                this.originalCanvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-                this.originalCanvas.addEventListener('mouseup', () => this.handleMouseUp());
-                this.originalCanvas.addEventListener('mouseleave', () => this.handleMouseUp());
+                this.originalCanvas.addEventListener('mousemove', (e) => this.handleHoverMove(e));
+                // ドラッグ中はcanvas外でも追従できるようwindowで受ける
+                window.addEventListener('mousemove', (e) => this.handleDragMove(e));
+                window.addEventListener('mouseup', () => this.handleMouseUp());
 
                 document.getElementById('correctBtn').addEventListener('click', () => this.performCorrection());
                 document.getElementById('undoBtn').addEventListener('click', () => this.undo());
@@ -403,22 +404,24 @@
                 }
             }
 
-            handleMouseMove(e) {
-                if (!this.image) return;
+            handleHoverMove(e) {
+                if (!this.image || this.draggingIndex >= 0) return;
                 const { x, y } = this.getCanvasCoords(e);
-                if (this.draggingIndex >= 0) {
-                    const w = this.originalCanvas.width;
-                    const h = this.originalCanvas.height;
-                    this.points[this.draggingIndex] = {
-                        x: Math.max(0, Math.min(w, x)),
-                        y: Math.max(0, Math.min(h, y)),
-                    };
-                    this.updatePointDisplay();
-                    this.drawOriginalImage();
-                } else {
-                    const idx = this.getPointAt(x, y);
-                    this.originalCanvas.style.cursor = idx >= 0 ? 'grab' : 'crosshair';
-                }
+                const idx = this.getPointAt(x, y);
+                this.originalCanvas.style.cursor = idx >= 0 ? 'grab' : 'crosshair';
+            }
+
+            handleDragMove(e) {
+                if (this.draggingIndex < 0) return;
+                const { x, y } = this.getCanvasCoords(e);
+                const w = this.originalCanvas.width;
+                const h = this.originalCanvas.height;
+                this.points[this.draggingIndex] = {
+                    x: Math.max(0, Math.min(w, x)),
+                    y: Math.max(0, Math.min(h, y)),
+                };
+                this.updatePointDisplay();
+                this.drawOriginalImage();
             }
 
             handleMouseUp() {
