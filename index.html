@@ -171,15 +171,13 @@
             cursor: not-allowed;
         }
 
-        .reset-btn,
-        .download-btn {
+        .secondary-btn {
             background: #ffffff;
             color: #111;
             border-color: #ddd;
         }
 
-        .reset-btn:hover,
-        .download-btn:hover {
+        .secondary-btn:hover {
             background: #f5f5f5;
             color: #111;
             border-color: #999;
@@ -239,14 +237,14 @@
 
         <div class="instruction">
             <strong>使い方:</strong><br>
-            1. 画像をアップロードしてください<br>
-            2. 補正したい四角形の4つの角を<strong>時計回り</strong>にクリックしてください<br>
-            3. 「補正実行」ボタンをクリックして結果を確認してください
+            1. 画像をアップロードすると、四隅付近に4点が自動配置されます<br>
+            2. 各点をドラッグして、補正したい四角形の角に合わせてください（点1=左上 → 2=右上 → 3=右下 → 4=左下 の時計回り）<br>
+            3. 「補正実行」ボタンで結果を確認してください（Ctrl+Z または「元に戻す」で直前のドラッグを取り消せます）
         </div>
 
         <div class="canvas-container">
             <div class="canvas-wrapper">
-                <h3>元画像（4点をクリック）</h3>
+                <h3>元画像（4点をドラッグして調整）</h3>
                 <canvas id="originalCanvas"></canvas>
             </div>
             <div class="canvas-wrapper">
@@ -267,8 +265,8 @@
 
         <div class="controls">
             <button id="correctBtn" disabled>補正実行</button>
-            <button id="resetBtn" class="reset-btn">リセット</button>
-            <button id="downloadBtn" class="download-btn" disabled>結果をダウンロード</button>
+            <button id="undoBtn" class="secondary-btn" disabled>元に戻す</button>
+            <button id="downloadBtn" class="secondary-btn" disabled>結果をダウンロード</button>
         </div>
 
         <div id="status" class="status" style="display: none;"></div>
@@ -285,7 +283,11 @@
                 this.image = null;
                 this.points = [];
                 this.maxPoints = 4;
-                
+                this.draggingIndex = -1;
+                this.hitRadius = 12;
+                this.history = [];
+                this.maxHistory = 30;
+
                 this.initEventListeners();
             }
 
@@ -294,20 +296,20 @@
                     this.loadImage(e.target.files[0]);
                 });
 
-                this.originalCanvas.addEventListener('click', (e) => {
-                    this.addPoint(e);
-                });
+                this.originalCanvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.originalCanvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.originalCanvas.addEventListener('mouseup', () => this.handleMouseUp());
+                this.originalCanvas.addEventListener('mouseleave', () => this.handleMouseUp());
 
-                document.getElementById('correctBtn').addEventListener('click', () => {
-                    this.performCorrection();
-                });
+                document.getElementById('correctBtn').addEventListener('click', () => this.performCorrection());
+                document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+                document.getElementById('downloadBtn').addEventListener('click', () => this.downloadResult());
 
-                document.getElementById('resetBtn').addEventListener('click', () => {
-                    this.reset();
-                });
-
-                document.getElementById('downloadBtn').addEventListener('click', () => {
-                    this.downloadResult();
+                document.addEventListener('keydown', (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                        e.preventDefault();
+                        this.undo();
+                    }
                 });
             }
 
@@ -319,8 +321,13 @@
                     this.image = new Image();
                     this.image.onload = () => {
                         this.setupCanvas();
+                        this.initPoints();
+                        this.history = [];
+                        document.getElementById('correctBtn').disabled = false;
+                        document.getElementById('undoBtn').disabled = true;
+                        this.updatePointDisplay();
                         this.drawOriginalImage();
-                        this.showStatus('画像を読み込みました。4つの角を時計回りにクリックしてください。', 'info');
+                        this.showStatus('画像を読み込みました。4点をドラッグして角に合わせてください。', 'info');
                     };
                     this.image.src = e.target.result;
                 };
@@ -355,20 +362,87 @@
                 this.drawPoints();
             }
 
-            addPoint(e) {
-                if (this.points.length >= this.maxPoints) return;
+            initPoints() {
+                const w = this.originalCanvas.width;
+                const h = this.originalCanvas.height;
+                const m = 0.1;
+                this.points = [
+                    { x: w * m,         y: h * m         },
+                    { x: w * (1 - m),   y: h * m         },
+                    { x: w * (1 - m),   y: h * (1 - m)   },
+                    { x: w * m,         y: h * (1 - m)   },
+                ];
+            }
 
+            getCanvasCoords(e) {
                 const rect = this.originalCanvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
+                return {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                };
+            }
 
-                this.points.push({ x, y });
+            getPointAt(x, y) {
+                const r2 = this.hitRadius * this.hitRadius;
+                for (let i = 0; i < this.points.length; i++) {
+                    const dx = this.points[i].x - x;
+                    const dy = this.points[i].y - y;
+                    if (dx * dx + dy * dy <= r2) return i;
+                }
+                return -1;
+            }
+
+            handleMouseDown(e) {
+                if (!this.image) return;
+                const { x, y } = this.getCanvasCoords(e);
+                const idx = this.getPointAt(x, y);
+                if (idx >= 0) {
+                    this.pushHistory();
+                    this.draggingIndex = idx;
+                    this.originalCanvas.style.cursor = 'grabbing';
+                }
+            }
+
+            handleMouseMove(e) {
+                if (!this.image) return;
+                const { x, y } = this.getCanvasCoords(e);
+                if (this.draggingIndex >= 0) {
+                    const w = this.originalCanvas.width;
+                    const h = this.originalCanvas.height;
+                    this.points[this.draggingIndex] = {
+                        x: Math.max(0, Math.min(w, x)),
+                        y: Math.max(0, Math.min(h, y)),
+                    };
+                    this.updatePointDisplay();
+                    this.drawOriginalImage();
+                } else {
+                    const idx = this.getPointAt(x, y);
+                    this.originalCanvas.style.cursor = idx >= 0 ? 'grab' : 'crosshair';
+                }
+            }
+
+            handleMouseUp() {
+                if (this.draggingIndex >= 0) {
+                    this.draggingIndex = -1;
+                    this.originalCanvas.style.cursor = 'crosshair';
+                }
+            }
+
+            pushHistory() {
+                this.history.push(this.points.map(p => ({ x: p.x, y: p.y })));
+                if (this.history.length > this.maxHistory) {
+                    this.history.shift();
+                }
+                document.getElementById('undoBtn').disabled = false;
+            }
+
+            undo() {
+                if (this.history.length === 0) return;
+                this.points = this.history.pop();
                 this.updatePointDisplay();
                 this.drawOriginalImage();
-
-                if (this.points.length === this.maxPoints) {
-                    document.getElementById('correctBtn').disabled = false;
-                    this.showStatus('4つの点が選択されました。補正を実行できます。', 'success');
+                if (this.history.length === 0) {
+                    document.getElementById('undoBtn').disabled = true;
                 }
             }
 
@@ -715,19 +789,6 @@
                 ];
 
                 return inv;
-            }
-
-            reset() {
-                this.points = [];
-                this.updatePointDisplay();
-                if (this.image) {
-                    this.drawOriginalImage();
-                }
-                this.correctedCtx.clearRect(0, 0, this.correctedCanvas.width, this.correctedCanvas.height);
-                this.resultCanvas = null;
-                document.getElementById('correctBtn').disabled = true;
-                document.getElementById('downloadBtn').disabled = true;
-                this.showStatus('リセットしました。', 'info');
             }
 
             downloadResult() {
