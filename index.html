@@ -239,7 +239,8 @@
             <strong>使い方:</strong><br>
             1. 画像をアップロードすると、四隅付近に4点が自動配置されます<br>
             2. 各点をドラッグして、補正したい四角形の角に合わせてください（点1=左上 → 2=右上 → 3=右下 → 4=左下 の時計回り）<br>
-            3. 右側に補正結果がリアルタイムで表示されます（Ctrl+Z または「元に戻す」で直前のドラッグを取り消せます）
+            3. 点をクリックして選択（外側にリングが付きます）→ 矢印キー（Shift+矢印で10px）で微調整できます<br>
+            4. 右側に補正結果がリアルタイムで表示されます（Ctrl+Z または「元に戻す」で直前のドラッグを取り消せます）
         </div>
 
         <div class="canvas-container">
@@ -284,6 +285,7 @@
                 this.points = [];
                 this.maxPoints = 4;
                 this.draggingIndex = -1;
+                this.selectedIndex = -1;
                 this.hitRadius = 12;
                 this.history = [];
                 this.maxHistory = 30;
@@ -307,12 +309,7 @@
                 document.getElementById('undoBtn').addEventListener('click', () => this.undo());
                 document.getElementById('downloadBtn').addEventListener('click', () => this.downloadResult());
 
-                document.addEventListener('keydown', (e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-                        e.preventDefault();
-                        this.undo();
-                    }
-                });
+                document.addEventListener('keydown', (e) => this.handleKeyDown(e));
             }
 
             loadImage(file) {
@@ -325,6 +322,7 @@
                         this.setupCanvas();
                         this.initPoints();
                         this.history = [];
+                        this.selectedIndex = -1;
                         document.getElementById('correctBtn').disabled = false;
                         document.getElementById('undoBtn').disabled = true;
                         this.updatePointDisplay();
@@ -413,8 +411,41 @@
                 if (idx >= 0) {
                     this.pushHistory();
                     this.draggingIndex = idx;
+                    this.selectedIndex = idx;
                     this.originalCanvas.style.cursor = 'grabbing';
+                    this.drawOriginalImage();
                 }
+            }
+
+            handleKeyDown(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    this.undo();
+                    return;
+                }
+                if (!this.image || this.selectedIndex < 0) return;
+
+                const step = e.shiftKey ? 10 : 1;
+                let dx = 0, dy = 0;
+                switch (e.key) {
+                    case 'ArrowLeft':  dx = -step; break;
+                    case 'ArrowRight': dx = step;  break;
+                    case 'ArrowUp':    dy = -step; break;
+                    case 'ArrowDown':  dy = step;  break;
+                    default: return;
+                }
+
+                e.preventDefault();
+                this.pushHistory();
+
+                const p = this.points[this.selectedIndex];
+                this.points[this.selectedIndex] = {
+                    x: Math.max(0, Math.min(this.displayWidth, p.x + dx)),
+                    y: Math.max(0, Math.min(this.displayHeight, p.y + dy)),
+                };
+                this.updatePointDisplay();
+                this.drawOriginalImage();
+                this.schedulePreview();
             }
 
             handleHoverMove(e) {
@@ -476,6 +507,15 @@
 
             drawPoints() {
                 this.points.forEach((point, index) => {
+                    // 選択中の点は外側にリングを重ねて強調
+                    if (index === this.selectedIndex) {
+                        this.originalCtx.strokeStyle = '#111';
+                        this.originalCtx.lineWidth = 1;
+                        this.originalCtx.beginPath();
+                        this.originalCtx.arc(point.x, point.y, 10, 0, 2 * Math.PI);
+                        this.originalCtx.stroke();
+                    }
+
                     // 点を描画
                     this.originalCtx.fillStyle = '#111';
                     this.originalCtx.beginPath();
