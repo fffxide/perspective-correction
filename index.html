@@ -239,7 +239,7 @@
             <strong>使い方:</strong><br>
             1. 画像をアップロードすると、四隅付近に4点が自動配置されます<br>
             2. 各点をドラッグして、補正したい四角形の角に合わせてください（点1=左上 → 2=右上 → 3=右下 → 4=左下 の時計回り）<br>
-            3. 「補正実行」ボタンで結果を確認してください（Ctrl+Z または「元に戻す」で直前のドラッグを取り消せます）
+            3. 右側に補正結果がリアルタイムで表示されます（Ctrl+Z または「元に戻す」で直前のドラッグを取り消せます）
         </div>
 
         <div class="canvas-container">
@@ -287,6 +287,7 @@
                 this.hitRadius = 12;
                 this.history = [];
                 this.maxHistory = 30;
+                this.previewRequested = false;
 
                 this.initEventListeners();
             }
@@ -328,6 +329,7 @@
                         document.getElementById('undoBtn').disabled = true;
                         this.updatePointDisplay();
                         this.drawOriginalImage();
+                        this.schedulePreview();
                         this.showStatus('画像を読み込みました。4点をドラッグして角に合わせてください。', 'info');
                     };
                     this.image.src = e.target.result;
@@ -433,6 +435,18 @@
                 };
                 this.updatePointDisplay();
                 this.drawOriginalImage();
+                this.schedulePreview();
+            }
+
+            schedulePreview() {
+                if (this.previewRequested) return;
+                this.previewRequested = true;
+                requestAnimationFrame(() => {
+                    this.previewRequested = false;
+                    if (this.image && this.points.length === this.maxPoints) {
+                        this.performCorrection(true);
+                    }
+                });
             }
 
             handleMouseUp() {
@@ -510,9 +524,9 @@
                 }
             }
 
-            performCorrection() {
+            performCorrection(quiet = false) {
                 if (this.points.length !== this.maxPoints) {
-                    this.showStatus('4つの点を選択してください。', 'error');
+                    if (!quiet) this.showStatus('4つの点を選択してください。', 'error');
                     return;
                 }
 
@@ -527,10 +541,10 @@
                     this.applyTransform(matrix, width, height);
 
                     document.getElementById('downloadBtn').disabled = false;
-                    this.showStatus(`補正が完了しました(${Math.round(width)}×${Math.round(height)}px)`, 'success');
+                    if (!quiet) this.showStatus(`補正が完了しました(${Math.round(width)}×${Math.round(height)}px)`, 'success');
                 } catch (error) {
                     console.error('補正エラー:', error);
-                    this.showStatus('補正に失敗しました。点の位置を確認してください。', 'error');
+                    if (!quiet) this.showStatus('補正に失敗しました。点の位置を確認してください。', 'error');
                 }
             }
 
